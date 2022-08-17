@@ -1,0 +1,6 @@
+<RCC>
+    <qresource prefix="/">
+        <file>haarcascade_frontalface_default.xml</file>
+        <file>best_model.tflite</file>
+    </qresource>
+</RCC>
