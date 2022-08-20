@@ -13,42 +13,20 @@ using namespace std;
 ACV_Widget::ACV_Widget(QWidget *parent)
   : QWidget{parent}
 {
-//  if (m_cam.open(0))
-//    {
-//      m_cam.set(CAP_PROP_FRAME_WIDTH, 800);
-//      m_cam.set(CAP_PROP_FRAME_HEIGHT, 600);
-////      m_status = tflite::InterpreterBuilder(*m_model, resolver)(&interpreter);
-////      if (m_status == kTfLiteOk)
-////        {
-////          startTimer(70);
-////        }
-////      else
-////        std::cout << "LoadSavedModel Failed: " << std::endl;
-////      startTimer(70); // TODO убрать
-
-//    }
-//  else
-//    cerr << "cam is not opened error" << endl;
-////  startTimer(70);
-
-  m_camera.reset(new QCamera(QMediaDevices::defaultVideoInput()));
-  m_captureSession.setCamera(m_camera.data());
+//  m_camera.reset(new QCamera(QMediaDevices::defaultVideoInput()));
+//  m_captureSession.setCamera(m_camera.data());
+  set_camera(QMediaDevices::defaultVideoInput());
   m_imageCapture = new QImageCapture;
   connect(m_imageCapture, &QImageCapture::imageCaptured, this, &ACV_Widget::on_imageCaptured);
   connect(m_imageCapture, &QImageCapture::errorOccurred, this, &ACV_Widget::on_errorOccurred);
-//  connect(m_imageCapture, &QImageCapture::imageAvailable, this, &ACV_Widget::on_imageAvailable);
   m_captureSession.setImageCapture(m_imageCapture);
 //  m_imageCapture->setQuality(QImageCapture::VeryLowQuality);
   m_imageCapture->setResolution(480, 640);
-//  auto v = new QVideoWidget(this);
-//  v->setGeometry(10,10,400,400);
-//  v->show();
-//  m_captureSession.setVideoOutput(v);
+
+
   auto empty_view = new QVideoWidget;
   m_captureSession.setVideoOutput(empty_view);
-//  m_video_sink = new QVideoSink;
-//  m_captureSession.setVideoSink(m_video_sink);
-//  connect(m_video_sink, &QVideoSink::videoFrameChanged, this, &ACV_Widget::on_videoFrameChanged);
+
   m_camera->start();
 //  m_imageCapture->capture();
 //  m_te = new QTextEdit(this);
@@ -57,17 +35,21 @@ ACV_Widget::ACV_Widget(QWidget *parent)
 
   connect(&m_timer, &QTimer::timeout, this, &ACV_Widget::on_capture_timer);
   connect(m_imageCapture, &QImageCapture::readyForCaptureChanged, this, &ACV_Widget::on_readyForCapture);
-//  m_timer.start(200);
   m_model = tflite::FlatBufferModel::BuildFromFile(m_emotion_detector_file.data());
-  auto bilder = tflite::InterpreterBuilder(*m_model, resolver);
-  m_status = bilder(&interpreter);
-//  m_status = tflite::InterpreterBuilder(*m_model, resolver)(&interpreter);
+  m_status = tflite::InterpreterBuilder(*m_model, resolver)(&interpreter);
   if (m_status == kTfLiteOk)
     {
-      m_timer.start(400);
+      m_timer.start(200);
     }
   else
     std::cout << "LoadSavedModel Failed: " << std::endl;
+}
+
+void ACV_Widget::set_camera(const QCameraDevice &cameraDevice)
+{
+  m_camera.reset(new QCamera(cameraDevice));
+  m_captureSession.setCamera(m_camera.data());
+  m_camera->start();
 }
 
 std::string ACV_Widget::img_to_emotion(const cv::Mat &frame)
@@ -124,16 +106,16 @@ std::string ACV_Widget::img_to_emotion(const cv::Mat &frame)
 
 void ACV_Widget::on_imageCaptured(int id, const QImage &img)
 {
-  m_curr_image = img.scaled(QSize(400, 800),
-                            Qt::KeepAspectRatio,
-                            Qt::SmoothTransformation);
+//  m_curr_image = img.scaled(QSize(400, 800),
+//                            Qt::KeepAspectRatio,
+//                            Qt::SmoothTransformation);
   m_curr_image = img;
   m_id = id;
   update();
 }
 void ACV_Widget::on_errorOccurred(int id, QImageCapture::Error error, const QString &errorString)
 {
-  m_te->setText(errorString + QString::number(id));
+//  m_te->setText(errorString + QString::number(id));
 }
 
 void ACV_Widget::on_capture_timer()
@@ -147,11 +129,8 @@ void ACV_Widget::on_readyForCapture(bool ready)
 //  m_te->setText(ready ? "ready" : "not");
 //  if (m_imageCapture->isReadyForCapture())
 //    m_imageCapture->capture();
-//  m_timer.stop();
+  //  m_timer.stop();
 }
-
-
-
 
 void ACV_Widget::paintEvent(QPaintEvent *event)
 {

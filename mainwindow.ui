@@ -16,6 +16,9 @@
   <widget class="QWidget" name="centralwidget">
    <layout class="QVBoxLayout" name="verticalLayout">
     <item>
+     <widget class="QComboBox" name="cameras_combo_box"/>
+    </item>
+    <item>
      <layout class="QHBoxLayout" name="horizontalLayout">
       <item>
        <widget class="ACV_Widget" name="cv_widget" native="true">
@@ -34,16 +37,6 @@
        </widget>
       </item>
      </layout>
-    </item>
-    <item>
-     <widget class="QTextEdit" name="textEdit">
-      <property name="sizePolicy">
-       <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
-        <horstretch>0</horstretch>
-        <verstretch>0</verstretch>
-       </sizepolicy>
-      </property>
-     </widget>
     </item>
    </layout>
   </widget>

@@ -26,7 +26,6 @@
 #include <QImage>
 
 #include <QtWidgets>
-#include <QMediaDevices>
 #include <QMediaFormat>
 
 
@@ -35,8 +34,8 @@
 
 #include "tensorflow/lite/interpreter.h"
 #include "tensorflow/lite/kernels/register.h"
-#include "tensorflow/lite/model.h"
-#include "tensorflow/lite/optional_debug_tools.h"
+//#include "tensorflow/lite/model.h"
+//#include "tensorflow/lite/optional_debug_tools.h"
 #include "tensorflow/lite/c/c_api_types.h"
 
 class ACV_Widget : public QWidget
@@ -44,6 +43,8 @@ class ACV_Widget : public QWidget
   Q_OBJECT
 public:
   explicit ACV_Widget(QWidget *parent = nullptr);
+
+  void set_camera(const QCameraDevice &cameraDevice);
 
 private:
   cv::VideoCapture m_cam {};
@@ -57,10 +58,9 @@ private:
 
   cv::CascadeClassifier m_face_detector{m_face_detector_qml};
 
+  // Build the interpreter
   const char *filename {"/home/kap/Загрузки/best_model.tflite"};
   std::unique_ptr<tflite::FlatBufferModel> m_model;
-
-  // Build the interpreter
   tflite::ops::builtin::BuiltinOpResolver resolver;
   std::unique_ptr<tflite::Interpreter> interpreter;
   TfLiteStatus m_status {};
@@ -86,7 +86,7 @@ private:
   void on_errorOccurred(int id, QImageCapture::Error error, const QString &errorString);
   void on_capture_timer();
   void on_readyForCapture(bool ready);
-  QTextEdit *m_te;
+//  QTextEdit *m_te;
 
 //signals:
 

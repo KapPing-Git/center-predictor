@@ -5,41 +5,8 @@
 
 #include <QtCore>
 #include <QDir>
-//#include <QtAndroid>
-
-//#include "tensorflow/lite/interpreter.h"
-//#include "tensorflow/lite/kernels/register.h"
-//#include "tensorflow/lite/model.h"
-//#include "tensorflow/lite/optional_debug_tools.h"
 
 using namespace std;
-
-bool checkPermission(const QString &permission)
-{
-//#ifdef Q_OS_ANDROID
-//  QtAndroid::PermissionResult r = QtAndroid::checkPermission(permission);
-//  if(r != QtAndroid::PermissionResult::Granted)
-//    {
-//      QtAndroid::requestPermissionsSync( QStringList() << permission );
-//      r = QtAndroid::checkPermission(permission);
-//      if(r == QtAndroid::PermissionResult::Denied)
-//        {
-//          return false;
-//        }
-//      else
-//        {
-//          return true;
-//        }
-//    }
-//  else
-//    return(true);
-
-//#else
-//  return true;
-//#endif
-  return false;
-}
-
 
 MainWindow::MainWindow(QWidget *parent)
   : QMainWindow(parent)
@@ -62,36 +29,32 @@ MainWindow::MainWindow(QWidget *parent)
   QFile emo_file(emotion_detect_file_name);
   if (!emo_file.exists())
     {
-//      ui->textEdit->setText("not exist");
       QFile res("assets:/best_model.tflite");
       res.copy(emotion_detect_file_name);
     }
-//  else
-//    ui->textEdit->setText("exist");
-
-  QDir dir {QDir::homePath()};
-  for (auto elem : dir.entryList())
-    ui->textEdit->append(elem);
-
-//  if (checkPermission("android.permission.CAMERA"))
-//    {
-//      ui->textEdit->append("android.permission.CAMERA выдано");
-//    }
-//  else
-//    {
-//      ui->textEdit->append("android.permission.CAMERA не выдано");
-//    }
 #endif
 
-//  m_camera.reset(new QCamera(QMediaDevices::defaultVideoInput()));
-//  m_captureSession.setCamera(m_camera.data());
-//  m_captureSession.setVideoOutput(ui->video_widget);
-//  m_camera->start();
+  update_cameras();
 
 }
 
 MainWindow::~MainWindow()
 {
   delete ui;
+}
+
+void MainWindow::update_cameras()
+{
+  ui->cameras_combo_box->clear();
+  const QList<QCameraDevice> availableCameras = QMediaDevices::videoInputs();
+  for (const QCameraDevice &cameraDevice : availableCameras)
+    {
+      ui->cameras_combo_box->addItem(cameraDevice.description(), QVariant::fromValue(cameraDevice));
+    }
+}
+
+void MainWindow::on_cameras_combo_box_currentIndexChanged(int index)
+{
+  ui->cv_widget->set_camera(qvariant_cast<QCameraDevice>(ui->cameras_combo_box->currentData()));
 }
 

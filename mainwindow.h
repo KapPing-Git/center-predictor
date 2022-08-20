@@ -15,7 +15,13 @@ public:
   MainWindow(QWidget *parent = nullptr);
   ~MainWindow();
 
+private slots:
+
+  void on_cameras_combo_box_currentIndexChanged(int index);
+
 private:
   Ui::MainWindow *ui;
+
+  void update_cameras();
 };
 #endif // MAINWINDOW_H
