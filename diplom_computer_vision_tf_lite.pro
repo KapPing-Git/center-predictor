@@ -1,6 +1,5 @@
 QT       += core gui
 
-#greaterThan(QT_MAJOR_VERSION, 4): QT += widgets androidextras multimedia multimediawidgets
 greaterThan(QT_MAJOR_VERSION, 4): QT += widgets multimedia multimediawidgets
 
 CONFIG += c++11
@@ -84,33 +83,36 @@ CONFIG += embed_translations
     LIBS += -L/home/kap/source_code/tensorflow/tensorflow/bazel-bin/tensorflow/lite -ltensorflowlite
 }
 
-#OPENCV_ANDROID = /home/kap/Android/OpenCV-android-sdk-4.5.2
-#OPENCV_ANDROID = /home/kap/Android/OpenCV-android-sdk
-OPENCV_ANDROID = /home/kap/compiled_libs/android
-#include($$OPENCV_ANDROID/sdk/native/jni/OpenCV.mk)
+contains(ANDROID_TARGET_ARCH,armeabi-v7a) {
+    OPENCV_ANDROID = /home/kap/compiled_libs/android
+    }
+contains(ANDROID_TARGET_ARCH,arm64-v8a) {
+    OPENCV_ANDROID = /home/kap/compiled_libs/android_64
+    }
+#OPENCV_ANDROID = /home/kap/compiled_libs/android_64
 android {
     include(/home/kap/Android/Sdk/android_openssl/openssl.pri)
-#    contains(ANDROID_TARGET_ARCH,armeabi-v7a) {
-#        isEmpty(OPENCV_ANDROID) {
-#            error("Let OPENCV_ANDROID point to the opencv-android-sdk, recommended: v4.0")
-#        }
-#error($$ANDROID_TARGET_ARCH)
         INCLUDEPATH += "$$OPENCV_ANDROID/sdk/native/jni/include"
-#        LIBS += -L/home/kap/Android/Sdk/ndk/21.4.7075529/toolchains/llvm/prebuilt/linux-x86_64/sysroot/usr/lib/arm-linux-androideabi/30/ -lmediandk
-#        LIBS += -lmediandk
+        LIBS += -lmediandk
+        contains(ANDROID_TARGET_ARCH,armeabi-v7a){
+            LIBS += \
+                -L"$$OPENCV_ANDROID/sdk/native/3rdparty/libs/$$ANDROID_TARGET_ARCH" \
+                -ltbb \
+                -lIlmImf
+        }
         LIBS += \
-            -L"$$OPENCV_ANDROID/sdk/native/libs/armeabi-v7a" \
-            -L"$$OPENCV_ANDROID/sdk/native/staticlibs/armeabi-v7a" \
-            -L"$$OPENCV_ANDROID/sdk/native/3rdparty/libs/armeabi-v7a" \
+            -L"$$OPENCV_ANDROID/sdk/native/libs/$$ANDROID_TARGET_ARCH" \
+            -L"$$OPENCV_ANDROID/sdk/native/staticlibs/$$ANDROID_TARGET_ARCH" \
+            -L"$$OPENCV_ANDROID/sdk/native/3rdparty/libs/$$ANDROID_TARGET_ARCH" \
             -lade \
-            -ltbb \
+#            -ltbb \
             -littnotify \
             -llibjpeg-turbo \
             -llibwebp \
             -llibpng \
             -llibtiff \
             -llibopenjp2 \
-            -lIlmImf \
+#            -lIlmImf \
             -lquirc \
             -ltegra_hal \
             -lopencv_dnn \
@@ -126,18 +128,16 @@ android {
             -llibprotobuf \
 #            -lc++_shared \
 
-        ANDROID_EXTRA_LIBS = $$OPENCV_ANDROID/sdk/native/libs/armeabi-v7a/libopencv_java4.so
+        ANDROID_EXTRA_LIBS = $$OPENCV_ANDROID/sdk/native/libs/arm64-v8a/libopencv_java4.so
         ANDROID_EXTRA_LIBS = /home/kap/source_code/tensorflow/tensorflow_arm/bazel-bin/tensorflow/lite/libtensorflowlite.so
         ANDROID_PACKAGE_SOURCE_DIR=$$_PRO_FILE_PWD_/android
 
         INCLUDEPATH += /home/kap/source_code/tensorflow/tensorflow_arm
         INCLUDEPATH += /home/kap/source_code/tensorflow/tensorflow_arm/bazel-bin/
         INCLUDEPATH += /home/kap/source_code/tensorflow/tensorflow_arm/bazel-tensorflow/external
-#        INCLUDEPATH += /usr/local/include
         INCLUDEPATH += /home/kap/source_code/tensorflow/tensorflow_arm/bazel-bin/external/flatbuffers/_virtual_includes/flatbuffers
 
         LIBS += -L/home/kap/source_code/tensorflow/tensorflow_arm/bazel-bin/tensorflow/lite -ltensorflowlite
-#    }
 }
 
 DISTFILES += \

@@ -11,29 +11,19 @@
 #include <QVideoWidget>
 #include <QTimer>
 #include <QTextEdit>
-
-#include <QMediaRecorder>
-#include <QVideoWidget>
-#include <QCameraDevice>
-#include <QMediaMetaData>
-#include <QMediaDevices>
-#include <QAudioDevice>
-#include <QAudioInput>
 #include <QVideoSink>
-
 #include <QMessageBox>
 #include <QPalette>
 #include <QImage>
 
 #include <QtWidgets>
-#include <QMediaFormat>
-
 
 #include <opencv2/opencv.hpp>
 
 
 #include "tensorflow/lite/interpreter.h"
 #include "tensorflow/lite/kernels/register.h"
+//#include "tensorflow/lite/nnapi/sl/include/SupportLibrary.h"
 //#include "tensorflow/lite/model.h"
 //#include "tensorflow/lite/optional_debug_tools.h"
 #include "tensorflow/lite/c/c_api_types.h"
@@ -49,17 +39,19 @@ public:
 private:
   cv::VideoCapture m_cam {};
 #ifdef Q_OS_ANDROID
-  const std::string m_face_detector_qml {(QDir::homePath() + QDir::separator() + "haarcascade_frontalface_default.xml").toStdString()};
-  const std::string m_emotion_detector_file {(QDir::homePath() + QDir::separator() + "best_model.tflite").toStdString()};
+  const std::string m_baze_dir {(QDir::homePath()+QDir::separator()).toStdString()};
 #else
-  const std::string m_face_detector_qml {"/home/kap/source_code/python/sample/diplom/haarcascade_frontalface_default.xml"};
-  const std::string m_emotion_detector_file {"/home/kap/source_code/II/diplom_computer_vision_tf_lite/best_model.tflite"};
+  const std::string m_baze_dir {"/home/kap/source_code/II/diplom_computer_vision_tf_lite/android/assets/"};
 #endif
+  const std::string m_face_detector_qml {m_baze_dir + "haarcascade_frontalface_default.xml"};
+  const std::string m_emotion_detector_file {m_baze_dir + "best_model.tflite"};
+  const std::string m_face_detector_graf {m_baze_dir + "deploy.prototxt"};
+  const std::string m_face_detector_weights {m_baze_dir + "weights.caffemodel"};
 
   cv::CascadeClassifier m_face_detector{m_face_detector_qml};
+  cv::dnn::Net m_face_detect_model;
 
   // Build the interpreter
-  const char *filename {"/home/kap/Загрузки/best_model.tflite"};
   std::unique_ptr<tflite::FlatBufferModel> m_model;
   tflite::ops::builtin::BuiltinOpResolver resolver;
   std::unique_ptr<tflite::Interpreter> interpreter;
@@ -76,17 +68,25 @@ private:
   QRandomGenerator rand_gen{13494895};
 
   QScopedPointer<QCamera> m_camera;
-  QImageCapture *m_imageCapture;
+  QVideoSink *m_video_sink{new QVideoSink{this}};
   QMediaCaptureSession m_captureSession;
   QImage m_curr_image;
   int m_id {-1};
   QTimer m_timer;
+  cv::Mat m_frame{};
+  std::vector<cv::Rect> m_face_coords;
 
-  void on_imageCaptured(int id, const QImage &img);
-  void on_errorOccurred(int id, QImageCapture::Error error, const QString &errorString);
+//  void on_video_frame_changed(const QVideoFrame &frame);
   void on_capture_timer();
   void on_readyForCapture(bool ready);
+
+  std::vector<cv::Rect> face_detect(const cv::Mat &frame);
 //  QTextEdit *m_te;
+  int64_t m_image_scale_time {0};
+  int64_t m_i_to_m_time {0};
+  int64_t m_face_detect_time {0};
+  int m_img_height {0};
+  int m_img_width {0};
 
 //signals:
 

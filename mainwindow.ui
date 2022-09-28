@@ -16,9 +16,6 @@
   <widget class="QWidget" name="centralwidget">
    <layout class="QVBoxLayout" name="verticalLayout">
     <item>
-     <widget class="QComboBox" name="cameras_combo_box"/>
-    </item>
-    <item>
      <layout class="QHBoxLayout" name="horizontalLayout">
       <item>
        <widget class="ACV_Widget" name="cv_widget" native="true">
@@ -34,6 +31,16 @@
           <height>100</height>
          </size>
         </property>
+        <widget class="QComboBox" name="cameras_combo_box">
+         <property name="geometry">
+          <rect>
+           <x>0</x>
+           <y>0</y>
+           <width>952</width>
+           <height>25</height>
+          </rect>
+         </property>
+        </widget>
        </widget>
       </item>
      </layout>
