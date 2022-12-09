@@ -64,7 +64,11 @@ MainWindow::MainWindow(QWidget *parent)
 #endif
 
   update_cameras();
+#ifdef Q_OS_ANDROID
   ui->cameras_combo_box->setCurrentIndex(1);
+#else
+  ui->cameras_combo_box->setCurrentIndex(0);
+#endif
 //  ui->cv_widget->set_camera(qvariant_cast<QCameraDevice>(ui->cameras_combo_box->itemData(1)));
 }
 

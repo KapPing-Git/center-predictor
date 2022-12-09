@@ -26,11 +26,16 @@ ACV_Widget::ACV_Widget(QWidget *parent)
   // загружаем модель классификации эмоций
   connect(&m_timer, &QTimer::timeout, this, &ACV_Widget::on_capture_timer);
   m_model = tflite::FlatBufferModel::BuildFromFile(m_emotion_detector_file.data());
-//  tflite::InterpreterBuilder(*m_model, resolver).AddDelegate();
-  m_status = tflite::InterpreterBuilder(*m_model, resolver)(&interpreter);
+  tflite::InterpreterBuilder builder(*m_model, resolver);
+//#ifdef Q_OS_ANDROID
+//  auto* delegate = TfLiteGpuDelegateV2Create(/*default options=*/nullptr);
+//  builder.AddDelegate(delegate);
+//  builder.AddDelegate(tflite::NnApiDelegate());
+//#endif
+  m_status = builder(&interpreter);
   if (m_status == kTfLiteOk)
     {
-      m_timer.start(2000);
+      m_timer.start(CAPTURE_DELAY);
     }
   else
     std::cout << "LoadSavedModel Failed: " << std::endl;
@@ -43,17 +48,14 @@ void ACV_Widget::set_camera(const QCameraDevice &cameraDevice)
   m_camera->start();
 }
 
-std::string ACV_Widget::img_to_emotion(const cv::Mat &frame)
+std::vector<string> ACV_Widget::img_to_emotion(const cv::Mat &frame)
 {
   if (m_status == kTfLiteOk)
     {
       interpreter->AllocateTensors();
-      float* input = interpreter->typed_input_tensor<float>(0); // TODO применить алгоритм многопоточного копирования
+      float* input = interpreter->typed_input_tensor<float>(0);
       auto *from_data = (uint8_t*)frame.data;
-      for (size_t i = 0;i < DATA_SIZE; ++i)
-        {
-          input[i] = float(from_data[i]);
-        }
+      copy(from_data, from_data + DATA_SIZE, input);
 
       auto status = interpreter->Invoke();
 
@@ -65,30 +67,26 @@ std::string ACV_Widget::img_to_emotion(const cv::Mat &frame)
           float max = output[0];
           static const vector<string> emo_names = {"злость", "презрение", "отвращение", "страх", "радость", "норма", "печаль",
                                             "удивление", "неуверенность"};
-          string emotions;
+          vector<string> emotions;
           for (int i = 0; i < size; ++i)
             {
               float curr_val = output[i];
               if (curr_val > 0.2)
-                emotions.append(emo_names[i] + " ");
+                emotions.push_back(emo_names[i]);
               if (curr_val > max)
                 {
                   max_idx = i;
                   max = curr_val;
                 }
-//              cout << curr_val << endl;
             }
-//          cout << endl;
 
-
-//          return emo_names[max_idx];
           return emotions;
         }
       else
-        return "predict error";
+        return {"predict error"};
     }
   else
-    return "Model doesn`t exist";
+    return {"Model doesn`t exist"};
 }
 
 void ACV_Widget::on_capture_timer()
@@ -119,15 +117,14 @@ void ACV_Widget::on_capture_timer()
 std::vector<Rect> ACV_Widget::face_detect(const cv::Mat &frame)
 {
   std::vector<Rect> coords;
+  // для Андроид не находим лицо на изображении, так как не удалось найти быстро работающую модель
+#ifdef Q_OS_ANDROID
+  coords.push_back(Rect{0, 100, frame.cols, frame.rows-200});
+  return coords;
+#endif
 
   QElapsedTimer timer;
   timer.start();
-//  cv::Mat gray_scale_frame{};
-//  timer.start();
-//  cv::cvtColor(frame, gray_scale_frame, cv::COLOR_BGR2GRAY);
-
-//  m_face_detector.detectMultiScale(gray_scale_frame, coords, 1.3, 5);
-//  m_face_detect_time = timer.elapsed();
 
   //ssd
   auto prepared_frame = cv::dnn::blobFromImage(frame, 1.0, Size(300,300), Scalar(104.0, 177.0, 123.0));
@@ -138,7 +135,6 @@ std::vector<Rect> ACV_Widget::face_detect(const cv::Mat &frame)
   auto it = output.begin<currTp>();
   while(it != output.end<currTp>())
     {
-//      cout << (*it)[2] << endl;
       currTp pred = *it;
       if (pred[2] < 0.5)
         break;
@@ -178,33 +174,38 @@ void ACV_Widget::paintEvent(QPaintEvent *event)
 
           // предсказываем эмоцию
           timer.start();
-          string emotion_name {img_to_emotion(face_frame_resized)};
+          vector<string> emotion_names {img_to_emotion(face_frame_resized)};
           m_emo_time = timer.elapsed();
           // печатаем эмоцию на экране
-          cv::putText(m_frame, emotion_name, Point(face_rect.x, face_rect.y-5), cv::FONT_HERSHEY_COMPLEX, 1.5, Scalar(0,255,0,0),2);
+          if (emotion_names.size() > 0)
+            cv::putText(m_frame, emotion_names[0], Point(face_rect.x, face_rect.y-5),
+                cv::FONT_HERSHEY_COMPLEX, 1, Scalar(0,255,0,0),2);
+          if (emotion_names.size() > 1)
+            cv::putText(m_frame, emotion_names[1], Point(face_rect.x, face_rect.y + face_rect.height + 20),
+                cv::FONT_HERSHEY_COMPLEX, 1, Scalar(0,255,0,0),2);
           cv::rectangle(m_frame, face_rect, Scalar(0,0,255,0), 2);
         }
 
       // рисуем фрейм на виджете
       timer.start();
       painter.drawImage(rect(), Mat2QImage(m_frame));
-      painter.setBrush(Qt::white);
-      painter.drawRect(10,40,180,400);
-      int64_t draw_time = timer.elapsed();
-      int add = 30;
-      int y = 40;
-      y += add; painter.drawText(10, y , QString::number(m_curr_image.width()) + "   " +
-                                 QString::number(m_curr_image.height()) + "   ");
+//      painter.setBrush(Qt::white);
+//      painter.drawRect(10,40,180,400);
+//      int64_t draw_time = timer.elapsed();
+//      int add = 30;
+//      int y = 40;
+//      y += add; painter.drawText(10, y , QString::number(m_curr_image.width()) + "   " +
+//                                 QString::number(m_curr_image.height()) + "   ");
 
-      painter.drawText(10, 10 , QString::number(m_curr_image.width()) + "   ");
+//      painter.drawText(10, 10 , QString::number(m_curr_image.width()) + "   ");
 
-      y += add; painter.drawText(10, y, "qimage " + QString::number(m_image_scale_time));
-      y += add; painter.drawText(10, y, "m_i_to_m_time " + QString::number(m_i_to_m_time));
-      y += add; painter.drawText(10, y, "m_face_detect_time " + QString::number(m_face_detect_time));
-      y += add; painter.drawText(10, y, "resize_time " + QString::number(resize_time));
-      y += add; painter.drawText(10, y, "m_emo_time " + QString::number(m_emo_time));
-      y += add; painter.drawText(10, y, "draw_time " + QString::number(draw_time));
-      y += add; painter.drawText(10, y, "painter " + QString::number(timer_all.elapsed()));
+//      y += add; painter.drawText(10, y, "qimage " + QString::number(m_image_scale_time));
+//      y += add; painter.drawText(10, y, "m_i_to_m_time " + QString::number(m_i_to_m_time));
+//      y += add; painter.drawText(10, y, "m_face_detect_time " + QString::number(m_face_detect_time));
+//      y += add; painter.drawText(10, y, "resize_time " + QString::number(resize_time));
+//      y += add; painter.drawText(10, y, "m_emo_time " + QString::number(m_emo_time));
+//      y += add; painter.drawText(10, y, "draw_time " + QString::number(draw_time));
+//      y += add; painter.drawText(10, y, "painter " + QString::number(timer_all.elapsed()));
     }
 
   event->accept();

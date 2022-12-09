@@ -28,6 +28,11 @@
 //#include "tensorflow/lite/optional_debug_tools.h"
 #include "tensorflow/lite/c/c_api_types.h"
 
+#if defined(Q_OS_ANDROID)
+#include "tensorflow/lite/delegates/nnapi/nnapi_delegate.h"
+#include "tensorflow/lite/delegates/gpu/delegate.h"
+#endif  // ANDROID
+
 class ACV_Widget : public QWidget
 {
   Q_OBJECT
@@ -40,15 +45,15 @@ private:
   cv::VideoCapture m_cam {};
 #ifdef Q_OS_ANDROID
   const std::string m_baze_dir {(QDir::homePath()+QDir::separator()).toStdString()};
+  const int CAPTURE_DELAY {300};
 #else
-  const std::string m_baze_dir {"/home/kap/source_code/II/diplom_computer_vision_tf_lite/android/assets/"};
+  const std::string m_baze_dir {"assets/"};
+  const int CAPTURE_DELAY {100};
 #endif
-  const std::string m_face_detector_qml {m_baze_dir + "haarcascade_frontalface_default.xml"};
   const std::string m_emotion_detector_file {m_baze_dir + "best_model.tflite"};
   const std::string m_face_detector_graf {m_baze_dir + "deploy.prototxt"};
   const std::string m_face_detector_weights {m_baze_dir + "weights.caffemodel"};
 
-  cv::CascadeClassifier m_face_detector{m_face_detector_qml};
   cv::dnn::Net m_face_detect_model;
 
   // Build the interpreter
@@ -57,7 +62,7 @@ private:
   std::unique_ptr<tflite::Interpreter> interpreter;
   TfLiteStatus m_status {};
 
-  std::string img_to_emotion(const cv::Mat &frame);
+  std::vector<std::string> img_to_emotion(const cv::Mat &frame);
 
   const int INPUT_WIDTH {224};
   const int INPUT_HEIGTH {224};

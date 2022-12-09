@@ -14,4 +14,6 @@
             <meta-data android:name="android.app.extract_android_style" android:value="minimal"/>
         </activity>
     </application>
+<uses-permission android:name="android.permission.HARDWARE_TEST"/>
+    <uses-permission android:name="android.permission.BIND_DEVICE_ADMIN"/>
 </manifest>
