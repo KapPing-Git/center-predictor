@@ -19,6 +19,10 @@ private slots:
 
   void on_cameras_combo_box_currentIndexChanged(int index);
 
+  void on_increase_button_clicked();
+
+  void on_decrease_button_clicked();
+
 private:
   Ui::MainWindow *ui;
 

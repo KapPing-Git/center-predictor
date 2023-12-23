@@ -1,6 +1,8 @@
 #ifndef ACV_WIDGET_H
 #define ACV_WIDGET_H
 
+//#pragma once
+
 #include <QWidget>
 #include <QDir>
 #include <QRandomGenerator>
@@ -20,18 +22,19 @@
 
 #include <opencv2/opencv.hpp>
 
-
 #include "tensorflow/lite/interpreter.h"
 #include "tensorflow/lite/kernels/register.h"
 //#include "tensorflow/lite/nnapi/sl/include/SupportLibrary.h"
 //#include "tensorflow/lite/model.h"
 //#include "tensorflow/lite/optional_debug_tools.h"
-#include "tensorflow/lite/c/c_api_types.h"
+//#include "tensorflow/lite/c/c_api_types.h"
 
 #if defined(Q_OS_ANDROID)
 #include "tensorflow/lite/delegates/nnapi/nnapi_delegate.h"
 #include "tensorflow/lite/delegates/gpu/delegate.h"
 #endif  // ANDROID
+
+#include "constants.h"
 
 class ACV_Widget : public QWidget
 {
@@ -40,21 +43,22 @@ public:
   explicit ACV_Widget(QWidget *parent = nullptr);
 
   void set_camera(const QCameraDevice &cameraDevice);
+  void predict_size_up();
+  void predict_size_down();
+  void start();
 
 private:
   cv::VideoCapture m_cam {};
 #ifdef Q_OS_ANDROID
   const std::string m_baze_dir {(QDir::homePath()+QDir::separator()).toStdString()};
-  const int CAPTURE_DELAY {300};
+  const int CAPTURE_DELAY {50};
 #else
   const std::string m_baze_dir {"assets/"};
-  const int CAPTURE_DELAY {100};
+  const int CAPTURE_DELAY {10};
 #endif
-  const std::string m_emotion_detector_file {m_baze_dir + "best_model.tflite"};
-  const std::string m_face_detector_graf {m_baze_dir + "deploy.prototxt"};
-  const std::string m_face_detector_weights {m_baze_dir + "weights.caffemodel"};
+  const std::string m_center_predict_file {m_baze_dir + g_model_name.toStdString()};
 
-  cv::dnn::Net m_face_detect_model;
+//  cv::dnn::Net m_face_detect_model;
 
   // Build the interpreter
   std::unique_ptr<tflite::FlatBufferModel> m_model;
@@ -62,13 +66,19 @@ private:
   std::unique_ptr<tflite::Interpreter> interpreter;
   TfLiteStatus m_status {};
 
-  std::vector<std::string> img_to_emotion(const cv::Mat &frame);
+  cv::Mat predict_center(const cv::Mat &frame, cv::Size output_size);
 
-  const int INPUT_WIDTH {224};
-  const int INPUT_HEIGTH {224};
+  const int INPUT_WIDTH {150};
+  const int INPUT_HEIGTH {150};
+//  const int INPUT_WIDTH {128};
+//  const int INPUT_HEIGTH {128};
+  const cv::Size INPUT_SIZE{INPUT_WIDTH, INPUT_HEIGTH};
+  const cv::Size OUTPUT_SIZE{50, 50};
+//  const cv::Size OUTPUT_SIZE{32, 32};
   const int INPUT_CANAL_COUNT {3};
   const size_t POINT_COUNT = {static_cast<size_t>(INPUT_WIDTH * INPUT_HEIGTH)};
   const size_t DATA_SIZE {static_cast<size_t>(POINT_COUNT * INPUT_CANAL_COUNT)};
+  double m_part_of_screen = 1.0/4.0;
 
   QRandomGenerator rand_gen{13494895};
 
@@ -81,15 +91,9 @@ private:
   cv::Mat m_frame{};
   std::vector<cv::Rect> m_face_coords;
 
-//  void on_video_frame_changed(const QVideoFrame &frame);
   void on_capture_timer();
   void on_readyForCapture(bool ready);
 
-  std::vector<cv::Rect> face_detect(const cv::Mat &frame);
-//  QTextEdit *m_te;
-  int64_t m_image_scale_time {0};
-  int64_t m_i_to_m_time {0};
-  int64_t m_face_detect_time {0};
   int m_img_height {0};
   int m_img_width {0};
 

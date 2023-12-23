@@ -78,4 +78,8 @@ android {
         targetSdkVersion qtTargetSdkVersion
         ndk.abiFilters = qtTargetAbiList.split(",")
     }
+
+    androidResources {
+       noCompress 'tflite'
+    }
 }
