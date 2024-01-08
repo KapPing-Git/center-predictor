@@ -51,30 +51,29 @@ private:
   cv::VideoCapture m_cam {};
 #ifdef Q_OS_ANDROID
   const std::string m_baze_dir {(QDir::homePath()+QDir::separator()).toStdString()};
-  const int CAPTURE_DELAY {50};
 #else
   const std::string m_baze_dir {"assets/"};
-  const int CAPTURE_DELAY {10};
 #endif
   const std::string m_center_predict_file {m_baze_dir + g_model_name.toStdString()};
+const int CAPTURE_DELAY {10};
 
 //  cv::dnn::Net m_face_detect_model;
 
   // Build the interpreter
   std::unique_ptr<tflite::FlatBufferModel> m_model;
-  tflite::ops::builtin::BuiltinOpResolver resolver;
-  std::unique_ptr<tflite::Interpreter> interpreter;
+  tflite::ops::builtin::BuiltinOpResolver m_resolver;
+  std::unique_ptr<tflite::Interpreter> m_interpreter;
   TfLiteStatus m_status {};
 
   cv::Mat predict_center(const cv::Mat &frame, cv::Size output_size);
 
-  const int INPUT_WIDTH {150};
-  const int INPUT_HEIGTH {150};
-//  const int INPUT_WIDTH {128};
-//  const int INPUT_HEIGTH {128};
+//  const int INPUT_WIDTH {150};
+//  const int INPUT_HEIGTH {150};
+  const int INPUT_WIDTH {128};
+  const int INPUT_HEIGTH {128};
   const cv::Size INPUT_SIZE{INPUT_WIDTH, INPUT_HEIGTH};
-  const cv::Size OUTPUT_SIZE{50, 50};
-//  const cv::Size OUTPUT_SIZE{32, 32};
+//  const cv::Size OUTPUT_SIZE{50, 50};
+  const cv::Size OUTPUT_SIZE{32, 32};
   const int INPUT_CANAL_COUNT {3};
   const size_t POINT_COUNT = {static_cast<size_t>(INPUT_WIDTH * INPUT_HEIGTH)};
   const size_t DATA_SIZE {static_cast<size_t>(POINT_COUNT * INPUT_CANAL_COUNT)};

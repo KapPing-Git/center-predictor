@@ -41,17 +41,28 @@ void ACV_Widget::start()
   connect(&m_timer, &QTimer::timeout, this, &ACV_Widget::on_capture_timer);
 
   m_model = tflite::FlatBufferModel::BuildFromFile(m_center_predict_file.data());
-  tflite::InterpreterBuilder builder(*m_model, resolver);
+  tflite::InterpreterBuilder builder(*m_model, m_resolver);
 #ifdef Q_OS_ANDROID
   auto* delegate = TfLiteGpuDelegateV2Create(/*default options=*/nullptr);
   builder.AddDelegate(delegate);
-//  builder.AddDelegate(tflite::NnApiDelegate());
+
+  builder.AddDelegate(tflite::NnApiDelegate());
 #endif
 
-  m_status = builder(&interpreter);
-  interpreter->AllocateTensors();
+  m_status = builder(&m_interpreter);
+
+//  const std::vector<int>& t_inputs = m_interpreter->inputs();
+//  TfLiteTensor* tensor = m_interpreter->tensor(t_inputs[0]);
+//  int batch = tensor->dims->data[0];
+//  int h = tensor->dims->data[1];
+//  int v = tensor->dims->data[2];
+//  int c = tensor->dims->data[3];
+//  m_interpreter->ResizeInputTensor(0, {2,h,v,c});
+
   if (m_status == kTfLiteOk)
     {
+//      m_interpreter->SetNumThreads(8);
+      m_interpreter->AllocateTensors();
       m_timer.start(CAPTURE_DELAY);
     }
   else
@@ -62,18 +73,33 @@ cv::Mat ACV_Widget::predict_center(const cv::Mat &frame, Size output_size)
 {
   if (m_status == kTfLiteOk)
     {
+
+//      const std::vector<int>& t_inputs = m_interpreter->inputs();
+//      for (int num_tensor = 0; num_tensor < m_interpreter->tensors_size(); num_tensor++)
+//        {
+//          QVector<int> shape;
+//          TfLiteTensor* tensor = m_interpreter->tensor(num_tensor);
+//          auto name = tensor->name;
+//          auto dim_size = tensor->dims->size;
+//          for (int i = 0; i < dim_size; i++)
+//            shape << tensor->dims->data[i];
+//          shape.clear();//33
+//        }
+
+
+
       // загружаем данные на входной слой
-      float* input = interpreter->typed_input_tensor<float>(0);
+      float* input = m_interpreter->typed_input_tensor<float>(0);
 
       auto *from_data = (uint8_t*)frame.data;
       for(ulong i = 0; i < DATA_SIZE; ++i)
         input[i] = float(from_data[i])/255;
 
       // делаем инференс
-      auto status = interpreter->Invoke();
+      auto status = m_interpreter->Invoke();
 
       // разбираем данные с выходного слоя
-      float* output = interpreter->typed_output_tensor<float>(0);
+      float* output = m_interpreter->typed_output_tensor<float>(0);
 
       if (status == kTfLiteOk)
         {
@@ -146,21 +172,7 @@ void ACV_Widget::paintEvent(QPaintEvent *event)
   QElapsedTimer timer;
   if (!m_frame.empty())
     {
-      // находим область в середине экрана
-//      int left = m_frame.cols/2 - INPUT_SIZE.width/2;
-//      int top = m_frame.rows/2 - INPUT_SIZE.height/2;
-//      cv::Rect in_rect{left, top, INPUT_SIZE.width, INPUT_SIZE.height};
-//      left = m_frame.cols/2 - OUTPUT_SIZE.width/2;
-//      top = m_frame.rows/2 - OUTPUT_SIZE.height/2;
-//      cv::Rect out_rect{left, top, OUTPUT_SIZE.width, OUTPUT_SIZE.height};
-
-//      // Вырезаем и преобразуем изображение
-//      timer.start();
-//      cv::Mat in_frame;
-//      m_frame(in_rect).copyTo(in_frame);
-//      int x = INPUT_SIZE.width/2 - OUTPUT_SIZE.width/2;
-//      in_frame(cv::Rect(x,x,OUTPUT_SIZE.width,OUTPUT_SIZE.width))=0;
-
+      // Получаем координаты области по которой предсказываем центр (прямоугольник в центре экрана)
       int screen_frame_width = m_frame.cols * m_part_of_screen;
       double in_ratio = double(INPUT_SIZE.height) / double(INPUT_SIZE.width);
       int screen_frame_height = double(screen_frame_width) * in_ratio;
@@ -170,6 +182,7 @@ void ACV_Widget::paintEvent(QPaintEvent *event)
       cv::Mat in_screen_frame;
       m_frame(in_rect_screen).copyTo(in_screen_frame);
 
+      // Получаем координаты предсказываемой области, того самого центра
       double kx = double(screen_frame_width) / double(INPUT_SIZE.width);
       double ky = double(screen_frame_height) / double(INPUT_SIZE.height);
       int screen_out_width = OUTPUT_SIZE.width*kx;
@@ -177,33 +190,25 @@ void ACV_Widget::paintEvent(QPaintEvent *event)
       left = m_frame.cols/2 - screen_out_width/2;
       top = m_frame.rows/2 - screen_out_height/2;
       cv::Rect out_rect{left, top, screen_out_width, screen_out_height};
-//      cv::Rect out_rect_screen{left, top, screen_frame_width, screen_frame_height};
 
       // Вырезаем и преобразуем изображение
-//      timer.start();
       cv::Mat in_frame;
-//      m_frame(in_rect).copyTo(in_frame);
       cv::resize(in_screen_frame, in_frame, INPUT_SIZE);
       int x = INPUT_SIZE.width/2 - OUTPUT_SIZE.width/2;
       in_frame(cv::Rect(x,x,OUTPUT_SIZE.width,OUTPUT_SIZE.width))=0;
-//      cv::Mat face_frame_resized;
-//      cv::resize(in_frame, face_frame_resized, cv::Size(INPUT_WIDTH, INPUT_HEIGTH));
-
 
       // предсказываем центер
-      timer.start();
       cv::Mat center = predict_center(in_frame, OUTPUT_SIZE);
 
+      // обозначаем области на экране
       cv::rectangle(m_frame, in_rect_screen, Scalar(0,0,255,0), 2);
       cv::rectangle(m_frame, out_rect, Scalar(0,0,255,0), 2);
 
-      // рисуем фрейм на виджете
-      timer.start();
+      // рисуем предсказанный фрейм
       painter.drawImage(rect(), Mat2QImage(m_frame));
       cv::Mat out_screen_frame;
       cv::resize(center, out_screen_frame, cv::Size(screen_frame_width, screen_frame_height));
       painter.drawImage(QRect(out_rect.x, out_rect.y, out_rect.width, out_rect.height), Mat2QImage(out_screen_frame));
-
     }
 
   event->accept();
