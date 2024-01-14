@@ -51,19 +51,40 @@ void ACV_Widget::start()
 
   m_status = builder(&m_interpreter);
 
-//  const std::vector<int>& t_inputs = m_interpreter->inputs();
-//  TfLiteTensor* tensor = m_interpreter->tensor(t_inputs[0]);
-//  int batch = tensor->dims->data[0];
-//  int h = tensor->dims->data[1];
-//  int v = tensor->dims->data[2];
-//  int c = tensor->dims->data[3];
-//  m_interpreter->ResizeInputTensor(0, {2,h,v,c});
-
   if (m_status == kTfLiteOk)
     {
-//      m_interpreter->SetNumThreads(8);
-      m_interpreter->AllocateTensors();
-      m_timer.start(CAPTURE_DELAY);
+      // получаем размерность входа
+      const std::vector<int>& t_inputs = m_interpreter->inputs();
+      TfLiteTensor* tensor = m_interpreter->tensor(t_inputs[0]);
+      int batch = tensor->dims->data[0];
+      m_input_width = tensor->dims->data[1];
+      m_input_height = tensor->dims->data[2];
+      m_canal_count = tensor->dims->data[3];
+      m_point_count = m_input_width*m_input_height;
+      m_data_size = m_point_count*m_canal_count;
+      m_input_size = cv::Size{m_input_width, m_input_height};
+
+      // получаем размерность выхода
+      const std::vector<int>& t_outputs = m_interpreter->outputs();
+      TfLiteTensor* out_tensor = m_interpreter->tensor(t_outputs[0]);
+      m_output_width = out_tensor->dims->data[1];
+      m_output_height = out_tensor->dims->data[2];
+      m_output_size = cv::Size{m_output_width, m_output_height};
+
+#ifndef Q_OS_ANDROID
+      m_interpreter->SetNumThreads(16); // для desctop не используем аппаратное ускорение поэтому делаем много потоков
+#endif
+      // модель настроена на работу со строго 1 batch(для корректной работы android delegate)
+      if (batch == 1)
+        {
+          m_interpreter->AllocateTensors();
+          m_timer.start(CAPTURE_DELAY);
+        }
+      else
+        {
+          m_status = kTfLiteError;
+          std::cout << "Размер батча в модели должен быть 1: " << std::endl;
+        }
     }
   else
     std::cout << "LoadSavedModel Failed: " << std::endl;
@@ -73,26 +94,11 @@ cv::Mat ACV_Widget::predict_center(const cv::Mat &frame, Size output_size)
 {
   if (m_status == kTfLiteOk)
     {
-
-//      const std::vector<int>& t_inputs = m_interpreter->inputs();
-//      for (int num_tensor = 0; num_tensor < m_interpreter->tensors_size(); num_tensor++)
-//        {
-//          QVector<int> shape;
-//          TfLiteTensor* tensor = m_interpreter->tensor(num_tensor);
-//          auto name = tensor->name;
-//          auto dim_size = tensor->dims->size;
-//          for (int i = 0; i < dim_size; i++)
-//            shape << tensor->dims->data[i];
-//          shape.clear();//33
-//        }
-
-
-
       // загружаем данные на входной слой
       float* input = m_interpreter->typed_input_tensor<float>(0);
 
       auto *from_data = (uint8_t*)frame.data;
-      for(ulong i = 0; i < DATA_SIZE; ++i)
+      for(ulong i = 0; i < m_data_size; ++i)
         input[i] = float(from_data[i])/255;
 
       // делаем инференс
@@ -104,7 +110,7 @@ cv::Mat ACV_Widget::predict_center(const cv::Mat &frame, Size output_size)
       if (status == kTfLiteOk)
         {
           cv::Mat center(output_size, CV_8UC3);
-          for(int i = 0; i < output_size.width*output_size.height*3; ++i)
+          for(int i = 0; i < output_size.width*output_size.height*m_canal_count; ++i)
             {
               center.data[i] = output[i]*255.0;
             }
@@ -130,6 +136,7 @@ void ACV_Widget::on_capture_timer()
   double in_ratio = double(in_height)/double(in_width);
   int need_height = 0, need_width = 0;
   int cut_x, cut_y;
+  // выбираем что обрезать ширину или высоту
   if (in_ratio > out_ratio)
     {
       //обрезаем высоту
@@ -147,7 +154,9 @@ void ACV_Widget::on_capture_timer()
       cut_x = (in_width - need_width)/2;
     }
 
+  // собственно обрезаем
   m_curr_image = m_video_sink->videoFrame().toImage().copy(cut_x, cut_y, need_width, need_height);
+  // масштабируем
   m_curr_image = m_curr_image.scaled(size(), Qt::IgnoreAspectRatio, Qt::SmoothTransformation);
 
   m_timer.stop();
@@ -157,6 +166,7 @@ void ACV_Widget::on_capture_timer()
       timer.start();
       m_frame = QImage2Mat(m_curr_image);
 
+      //Запускаем перерисовку экрана, при этом будет происходить вызов paintEvent и предсказание центра
       update();
     }
   m_timer.start();
@@ -167,14 +177,11 @@ void ACV_Widget::paintEvent(QPaintEvent *event)
 {
   QPainter painter(this);
 
-  QElapsedTimer timer_all;
-  timer_all.start();
-  QElapsedTimer timer;
   if (!m_frame.empty())
     {
       // Получаем координаты области по которой предсказываем центр (прямоугольник в центре экрана)
       int screen_frame_width = m_frame.cols * m_part_of_screen;
-      double in_ratio = double(INPUT_SIZE.height) / double(INPUT_SIZE.width);
+      double in_ratio = double(m_input_height) / double(m_input_width);
       int screen_frame_height = double(screen_frame_width) * in_ratio;
       int left = m_frame.cols/2 - screen_frame_width/2;
       int top = m_frame.rows/2 - screen_frame_height/2;
@@ -183,22 +190,22 @@ void ACV_Widget::paintEvent(QPaintEvent *event)
       m_frame(in_rect_screen).copyTo(in_screen_frame);
 
       // Получаем координаты предсказываемой области, того самого центра
-      double kx = double(screen_frame_width) / double(INPUT_SIZE.width);
-      double ky = double(screen_frame_height) / double(INPUT_SIZE.height);
-      int screen_out_width = OUTPUT_SIZE.width*kx;
-      int screen_out_height = OUTPUT_SIZE.height*ky;
+      double kx = double(screen_frame_width) / double(m_input_width);
+      double ky = double(screen_frame_height) / double(m_input_height);
+      int screen_out_width = m_output_size.width*kx;
+      int screen_out_height = m_output_size.height*ky;
       left = m_frame.cols/2 - screen_out_width/2;
       top = m_frame.rows/2 - screen_out_height/2;
       cv::Rect out_rect{left, top, screen_out_width, screen_out_height};
 
       // Вырезаем и преобразуем изображение
       cv::Mat in_frame;
-      cv::resize(in_screen_frame, in_frame, INPUT_SIZE);
-      int x = INPUT_SIZE.width/2 - OUTPUT_SIZE.width/2;
-      in_frame(cv::Rect(x,x,OUTPUT_SIZE.width,OUTPUT_SIZE.width))=0;
+      cv::resize(in_screen_frame, in_frame, m_input_size);
+      int x = m_input_size.width/2 - m_output_size.width/2;
+      in_frame(cv::Rect(x,x,m_output_size.width,m_output_size.width))=0;
 
       // предсказываем центер
-      cv::Mat center = predict_center(in_frame, OUTPUT_SIZE);
+      cv::Mat center = predict_center(in_frame, m_output_size);
 
       // обозначаем области на экране
       cv::rectangle(m_frame, in_rect_screen, Scalar(0,0,255,0), 2);

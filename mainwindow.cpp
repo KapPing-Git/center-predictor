@@ -17,34 +17,24 @@ MainWindow::MainWindow(QWidget *parent)
   ui->setupUi(this);
 
 #ifdef Q_OS_ANDROID
-
   // Копируем файл модели определения эмоций в домашнюю директорию, чтобы обращаться к нему как к файлу а не ресурсу
-//  QString model_name {"pred_center_model3.tflite"};
-//  QString model_name {"pred_center_model2.tflite"};
-  QString emotion_detect_file_name {QDir::homePath() + QDir::separator() + g_model_name};
-//  QString emotion_detect_file_name {"/data/user/0/kap.center_predictor.example/files/pred_center_model.tflite"};
-  QFile emo_file(emotion_detect_file_name);
+  QString model_file_name {QDir::homePath() + QDir::separator() + g_model_name};
+  QFile emo_file(model_file_name);
   if (emo_file.exists())
     {
       emo_file.remove();
     }
   QFile res("assets:/" + g_model_name);
-  res.copy(emotion_detect_file_name);
-
-//  QDir dir{QDir::home()};
-//  for (const auto &entry : dir.entryList())
-//    ui->textEdit->append(entry);
-
+  res.copy(model_file_name);
 #endif
 
-  update_cameras();
+  update_cameras(); // получаем список камер
 #ifdef Q_OS_ANDROID
-  ui->cameras_combo_box->setCurrentIndex(1);
+  ui->cameras_combo_box->setCurrentIndex(1); // для Android выбираем вронтальную по умолчанию
 #else
   ui->cameras_combo_box->setCurrentIndex(0);
 #endif
-//  ui->cv_widget->set_camera(qvariant_cast<QCameraDevice>(ui->cameras_combo_box->itemData(1)));
-
+  // запускаем цикл предсказания центра
   ui->cv_widget->start();
 }
 
@@ -53,6 +43,7 @@ MainWindow::~MainWindow()
   delete ui;
 }
 
+// получаем список камер
 void MainWindow::update_cameras()
 {
   ui->cameras_combo_box->clear();
@@ -63,7 +54,8 @@ void MainWindow::update_cameras()
     }
 }
 
-void MainWindow::on_cameras_combo_box_currentIndexChanged(int index)
+// Меняем камеру по выбору пользователя
+void MainWindow::on_cameras_combo_box_currentIndexChanged(int)
 {
   ui->cv_widget->set_camera(qvariant_cast<QCameraDevice>(ui->cameras_combo_box->currentData()));
 }

@@ -17,7 +17,7 @@ public:
 
 private slots:
 
-  void on_cameras_combo_box_currentIndexChanged(int index);
+  void on_cameras_combo_box_currentIndexChanged(int);
 
   void on_increase_button_clicked();
 

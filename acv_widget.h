@@ -69,14 +69,21 @@ const int CAPTURE_DELAY {10};
 
 //  const int INPUT_WIDTH {150};
 //  const int INPUT_HEIGTH {150};
-  const int INPUT_WIDTH {128};
-  const int INPUT_HEIGTH {128};
-  const cv::Size INPUT_SIZE{INPUT_WIDTH, INPUT_HEIGTH};
+  int m_input_width {128};
+  int m_input_height {128};
+  cv::Size m_input_size;
+  int m_output_width {128};
+  int m_output_height {128};
+  cv::Size m_output_size;
+//  cv::Size INPUT_SIZE{m_input_width, m_input_height};
 //  const cv::Size OUTPUT_SIZE{50, 50};
-  const cv::Size OUTPUT_SIZE{32, 32};
-  const int INPUT_CANAL_COUNT {3};
-  const size_t POINT_COUNT = {static_cast<size_t>(INPUT_WIDTH * INPUT_HEIGTH)};
-  const size_t DATA_SIZE {static_cast<size_t>(POINT_COUNT * INPUT_CANAL_COUNT)};
+//  const cv::Size OUTPUT_SIZE{32, 32};
+
+  int m_canal_count {3};
+//  const size_t POINT_COUNT = {static_cast<size_t>(m_input_width * m_input_height)};
+//  const size_t DATA_SIZE {static_cast<size_t>(POINT_COUNT * m_input_canal_count)};
+  size_t m_point_count;
+  size_t m_data_size;
   double m_part_of_screen = 1.0/4.0;
 
   QRandomGenerator rand_gen{13494895};
